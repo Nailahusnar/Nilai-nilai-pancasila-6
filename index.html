@@ -83,13 +83,11 @@
         </div>
     </header>
 
-    <!-- Firebase Cloud Storage Module Script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Environment variables or fallback appId
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'pancasila-lkpd-v6';
         let firebaseConfig = null;
 
@@ -108,7 +106,8 @@
 
         async function initCloudSync() {
             if (!firebaseConfig) {
-                console.info("Running in local mode. Submissions persist during single session.");
+                console.info("Running in local mode.");
+                updateCloudBadgeStatus(false);
                 return;
             }
 
@@ -146,13 +145,17 @@
                     cloudSubmissions.push({ ...docSnap.data(), id: docSnap.id });
                 });
 
+                cloudSubmissions.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                
                 if (cloudSubmissions.length > 0) {
-                    // Sort descending by created timestamp
-                    cloudSubmissions.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                     window.submissions = cloudSubmissions;
-                    if (typeof window.renderTeacherTable === 'function') {
-                        window.renderTeacherTable();
-                    }
+                }
+
+                if (typeof window.renderTeacherTable === 'function') {
+                    window.renderTeacherTable();
+                }
+                if (typeof window.updateAnalyticsCharts === 'function') {
+                    window.updateAnalyticsCharts();
                 }
             }, (error) => {
                 console.error("Firestore onSnapshot error:", error);
@@ -160,12 +163,14 @@
         }
 
         function updateCloudBadgeStatus(isOnline) {
-            const statusBadge = document.getElementById('cloud-sync-badge');
-            if (statusBadge) {
-                statusBadge.innerHTML = isOnline 
-                    ? `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> 🟢 Cloud Realtime Sync (Tersinkronisasi)`
-                    : `<span class="w-2 h-2 rounded-full bg-amber-400"></span> 🟠 Mode Lokal (Satu Sesi)`;
-            }
+            const badges = [document.getElementById('cloud-sync-badge'), document.getElementById('hero-cloud-badge')];
+            badges.forEach(badge => {
+                if (badge) {
+                    badge.innerHTML = isOnline 
+                        ? `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> 🟢 Cloud Realtime Sync`
+                        : `<span class="w-2 h-2 rounded-full bg-amber-400"></span> 🟠 Mode Lokal`;
+                }
+            });
         }
 
         window.addEventListener('DOMContentLoaded', initCloudSync);
@@ -177,20 +182,24 @@
         <span id="toast-message" class="font-medium">Pesan berhasil dikirim!</span>
     </div>
 
-    <!-- Main Container -->
     <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-8 sm:space-y-12">
 
         <!-- Hero Banner -->
         <section class="bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-white shadow-md relative overflow-hidden">
             <div class="max-w-3xl space-y-2.5 sm:space-y-4 relative z-10">
-                <span class="inline-block px-3 py-1 bg-amber-900/40 backdrop-blur-md rounded-full text-[10px] sm:text-xs font-semibold tracking-wide uppercase border border-amber-300/30">
-                    Modul LKPD Digital Pendidikan Pancasila
-                </span>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-block px-3 py-1 bg-amber-900/40 backdrop-blur-md rounded-full text-[10px] sm:text-xs font-semibold tracking-wide uppercase border border-amber-300/30">
+                        Modul LKPD Digital Pendidikan Pancasila
+                    </span>
+                    <span id="hero-cloud-badge" class="px-2.5 py-0.5 bg-amber-900/40 backdrop-blur-md text-amber-100 font-bold text-[10px] rounded-full border border-amber-300/30 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> 🟢 Cloud Realtime Sync
+                    </span>
+                </div>
                 <h2 class="text-xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-snug">
                     Pengamalan Pancasila untuk Kebahagiaan Bersama
                 </h2>
                 <p class="text-amber-100 text-xs sm:text-sm md:text-base leading-relaxed">
-                    Siswa memilih dan mengerjakan 3 dari 5 Sila Pancasila, menyaksikan video pembelajaran interaktif di YouTube, merekam suara/unggah karya, dan mengisi refleksi 5W1H. Hasil jawaban terkirim langsung ke Dashboard Guru untuk penilaian per-point.
+                    Siswa memilih dan mengerjakan 3 dari 5 Sila Pancasila, menyaksikan video pembelajaran interaktif di YouTube, merekam suara/unggah karya, dan mengisi refleksi 5W1H. Hasil jawaban terkirim langsung ke Dashboard Guru secara realtime.
                 </p>
                 <div class="pt-2 flex flex-wrap gap-3">
                     <button onclick="scrollToSection('lkpd-simulator')" class="px-5 py-2.5 bg-white text-amber-950 font-bold rounded-xl shadow hover:bg-amber-50 transition flex items-center gap-2 text-xs sm:text-sm active:scale-95 touch-manipulation">
@@ -231,7 +240,7 @@
                     <div>
                         <div class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs mb-2">2</div>
                         <h4 class="font-bold text-slate-800 text-xs sm:text-sm">Isi Identitas</h4>
-                        <p class="text-[11px] sm:text-xs text-slate-600 mt-1">Isi Nama Lengkap, Nomor Absen, dan Kelas.</p>
+                        <p class="text-[11px] sm:text-xs text-slate-600 mt-1">Isi Nama Lengkap, Nomor Absen, dan Kelas (VI-A/VI-B).</p>
                     </div>
                     <span class="text-[11px] text-blue-700 font-semibold mt-2.5 block">📝 Identitas Siswa</span>
                 </div>
@@ -258,7 +267,7 @@
                     <div>
                         <div class="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs mb-2">5</div>
                         <h4 class="font-bold text-slate-800 text-xs sm:text-sm">Kirim Jawaban</h4>
-                        <p class="text-[11px] sm:text-xs text-slate-600 mt-1">Jawaban otomatis terkirim ke Dashboard Guru.</p>
+                        <p class="text-[11px] sm:text-xs text-slate-600 mt-1">Jawaban otomatis terkirim realtime ke Dashboard Guru.</p>
                     </div>
                     <span class="text-[11px] text-purple-700 font-semibold mt-2.5 block">📊 Penilaian Per-Point Guru</span>
                 </div>
@@ -874,7 +883,7 @@
                     </button>
                 </div>
 
-                <!-- Student Receipt Box (No Grading Visible Here - Pure Confirmation Receipt) -->
+                <!-- Student Confirmation Receipt Box (Pure confirmation - NO grades shown here) -->
                 <div id="submission-result" class="hidden bg-emerald-50 rounded-2xl p-4 sm:p-6 border border-emerald-300 space-y-3">
                     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 pb-3">
                         <div class="flex items-center gap-2">
@@ -895,7 +904,7 @@
                     </div>
 
                     <div class="bg-white/80 p-3 rounded-xl border border-emerald-200 text-[11px] text-emerald-900 flex flex-wrap items-center justify-between gap-2">
-                        <span>ℹ️ Jawabanmu telah tersimpan dengan aman di database. Guru dapat memeriksa dan memberikan nilai per-point melalui Dashboard Guru.</span>
+                        <span>ℹ️ Jawabanmu telah tersimpan secara realtime di database. Guru dapat memeriksa dan memberikan nilai per-point melalui Dashboard Guru.</span>
                         <button onclick="accessTeacherDashboard()" type="button" class="px-3 py-1 bg-emerald-700 text-white font-bold rounded-lg hover:bg-emerald-800 transition">
                             Lihat Dashboard Guru
                         </button>
@@ -905,7 +914,7 @@
             </div>
         </section>
 
-        <!-- Section 3: Dashboard Analytics Guru & Penilaian Siswa -->
+        <!-- Section 3: Dashboard Analytics Guru & Penilaian Siswa (STRICTLY HIDDEN BY DEFAULT) -->
         <section id="analytics-dashboard" class="hidden bg-white rounded-2xl p-4 sm:p-7 border border-slate-200/90 shadow-md space-y-6">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
@@ -923,7 +932,7 @@
                 </div>
                 <div class="flex flex-wrap gap-2 w-full sm:w-auto">
                     <button onclick="switchTeacherDashboardTab('submisi')" id="btn-tab-submisi" type="button" class="px-3.5 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-sm transition touch-manipulation flex-1 sm:flex-none text-center">
-                        📝 Daftar Submisi & Penilaian (<span id="submission-count-badge">2</span>)
+                        📝 Daftar Submisi & Penilaian (<span id="submission-count-badge">0</span>)
                     </button>
                     <button onclick="switchTeacherDashboardTab('grafik')" id="btn-tab-grafik" type="button" class="px-3.5 py-2 bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl hover:bg-slate-200 transition touch-manipulation flex-1 sm:flex-none text-center">
                         📊 Analisis & Grafik
@@ -942,28 +951,28 @@
                         <span class="text-2xl sm:text-3xl">📥</span>
                         <div>
                             <span class="text-[10px] sm:text-xs font-semibold text-slate-500 block">Total Submisi</span>
-                            <span class="text-base sm:text-lg font-extrabold text-slate-900" id="stat-total-submisi">2 Siswa</span>
+                            <span class="text-base sm:text-lg font-extrabold text-slate-900" id="stat-total-submisi">0 Siswa</span>
                         </div>
                     </div>
                     <div class="bg-amber-50 p-3 sm:p-4 rounded-xl border border-amber-200 flex items-center gap-2.5 sm:gap-3">
                         <span class="text-2xl sm:text-3xl">⏳</span>
                         <div>
                             <span class="text-[10px] sm:text-xs font-semibold text-amber-800 block">Belum Dinilai</span>
-                            <span class="text-base sm:text-lg font-extrabold text-amber-900" id="stat-pending-submisi">1 Siswa</span>
+                            <span class="text-base sm:text-lg font-extrabold text-amber-900" id="stat-pending-submisi">0 Siswa</span>
                         </div>
                     </div>
                     <div class="bg-emerald-50 p-3 sm:p-4 rounded-xl border border-emerald-200 flex items-center gap-2.5 sm:gap-3">
                         <span class="text-2xl sm:text-3xl">✅</span>
                         <div>
                             <span class="text-[10px] sm:text-xs font-semibold text-emerald-800 block">Selesai Dinilai</span>
-                            <span class="text-base sm:text-lg font-extrabold text-emerald-900" id="stat-completed-submisi">1 Siswa</span>
+                            <span class="text-base sm:text-lg font-extrabold text-emerald-900" id="stat-completed-submisi">0 Siswa</span>
                         </div>
                     </div>
                     <div class="bg-indigo-50 p-3 sm:p-4 rounded-xl border border-indigo-200 flex items-center gap-2.5 sm:gap-3">
                         <span class="text-2xl sm:text-3xl">⭐</span>
                         <div>
                             <span class="text-[10px] sm:text-xs font-semibold text-indigo-800 block">Rata-Rata Nilai</span>
-                            <span class="text-base sm:text-lg font-extrabold text-indigo-900" id="stat-avg-score">95.0 / 100</span>
+                            <span class="text-base sm:text-lg font-extrabold text-indigo-900" id="stat-avg-score">0.0 / 100</span>
                         </div>
                     </div>
                 </div>
@@ -1001,7 +1010,7 @@
                         <div class="chart-container my-3">
                             <canvas id="chart-task-distribution"></canvas>
                         </div>
-                        <p class="text-[11px] text-slate-500 text-center">Sila 1, Sila 3, dan Sila 5 paling banyak diminati siswa.</p>
+                        <p class="text-[11px] text-slate-500 text-center">Rekapitulasi persentase pilihan tugas siswa secara real-time.</p>
                     </div>
 
                     <!-- Chart 2 -->
@@ -1013,7 +1022,7 @@
                         <div class="chart-container my-3">
                             <canvas id="chart-reflection-matrix"></canvas>
                         </div>
-                        <p class="text-[11px] text-slate-500 text-center">85% siswa telah menerapkan kebiasaan berdoa "Selalu".</p>
+                        <p class="text-[11px] text-slate-500 text-center">Grafik distribusi pilihan refleksi kebiasaan sehari-hari siswa.</p>
                     </div>
                 </div>
             </div>
@@ -1141,8 +1150,8 @@
         </div>
     </footer>
 
-    <!-- JavaScript Application Logic -->
     <script>
+        // State Variables
         let selectedTasks = [];
         let activeTabTask = null;
         let isRecording = false;
@@ -1155,6 +1164,49 @@
         let isTeacherUnlocked = false;
         const TEACHER_PIN = "1234";
         let subIdToDelete = null;
+
+        let chartTaskDist = null;
+        let chartReflectMatrix = null;
+
+        // Sample initial submissions for testing
+        let submissions = [
+            {
+                id: 'SUB-100001',
+                nama: 'Ananda Rizky',
+                absen: '03',
+                kelas: 'VI-A',
+                timestamp: '08:30 WIB',
+                createdAt: Date.now() - 3600000,
+                selectedTasks: [1, 2, 3],
+                answers: {
+                    1: {
+                        apa: 'Kegiatan syukuran khitanan Indra bersama keluarga dan teman.',
+                        siapa: 'Indra, Okto, Donita, Nadia, dan Dek Zahra.',
+                        dimana: 'Rumah Indra.',
+                        mengapa: 'Karena Okto dan Donita non-muslim, mereka tetap disambut hangat.',
+                        bagaimana: 'Saling menghormati perbedaan tata cara berdoa dan pakaian.'
+                    },
+                    2: {
+                        apa: 'Tindak perundungan berupa ejekan nama panggilan.',
+                        siapa: 'Domi mengejek Edo, kemudian Rina menegur Domi.',
+                        dimana: 'Di halaman sekolah.',
+                        mengapa: 'Mengejek teman dapat menyakiti hati dan memecah persahabatan.',
+                        bagaimana: 'Menegur pelaku dan melaporkan ke guru jika berlanjut.'
+                    },
+                    3: {
+                        apa: 'Keanekaragaman suku, budaya, dan bahasa daerah Indonesia.',
+                        siapa: 'Para pemuda Sumpah Pemuda tahun 1928.',
+                        dimana: 'Seluruh pelosok Nusantara.',
+                        mengapa: 'Perbedaan adalah kekayaan bangsa yang harus dijaga.',
+                        bagaimana: 'Berteman dengan siapa saja tanpa membedakan asal daerah.'
+                    }
+                },
+                graded: true,
+                totalScore: 95,
+                gradesBreakdown: { t1_5w1h: 20, t2_5w1h: 18, t3_5w1h: 19 },
+                teacherNote: 'Luar biasa! Jawaban sangat lengkap dan mencerminkan nilai Pancasila.'
+            }
+        ];
 
         // Cloud Helper Operations
         async function saveSubmissionToCloud(subData) {
@@ -1193,170 +1245,6 @@
             }
         }
 
-        // Student Submission Logic
-        function submitLKPD() {
-            if (selectedTasks.length !== 3) {
-                showToast('Pilih 3 Sila terlebih dahulu!', '⚠️');
-                return;
-            }
-
-            const nama = document.getElementById('sim-nama').value.trim() || 'Siswa Anonim';
-            const absen = document.getElementById('sim-absen').value.trim() || '01';
-            const kelas = document.getElementById('sim-kelas').value;
-            const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-            const timestampMs = Date.now();
-            const subId = `SUB-${timestampMs.toString().slice(-6)}`;
-
-            let answersObj = {};
-            selectedTasks.forEach(taskNum => {
-                answersObj[taskNum] = {
-                    apa: document.getElementById(`t${taskNum}-apa`)?.value || 'Telah dikerjakan dengan baik.',
-                    siapa: document.getElementById(`t${taskNum}-siapa`)?.value || 'Tokoh dalam materi.',
-                    dimana: document.getElementById(`t${taskNum}-dimana`)?.value || 'Lingkungan sekolah/rumah.',
-                    mengapa: document.getElementById(`t${taskNum}-mengapa`)?.value || 'Sesuai pengamalan nilai Pancasila.',
-                    bagaimana: document.getElementById(`t${taskNum}-bagaimana`)?.value || 'Menerapkan dalam kehidupan sehari-hari.'
-                };
-
-                if (taskNum === 1) {
-                    answersObj[taskNum].reflection = {
-                        s1: document.querySelector('input[name="s1"]:checked')?.value || 'Selalu',
-                        s2: document.querySelector('input[name="s2"]:checked')?.value || 'Selalu',
-                        s3: document.querySelector('input[name="s3"]:checked')?.value || 'Selalu',
-                        s4: document.querySelector('input[name="s4"]:checked')?.value || 'Sering'
-                    };
-                }
-
-                if (taskNum === 2 && recordedAudioUrl) {
-                    answersObj[taskNum].voiceNoteUrl = recordedAudioUrl;
-                }
-
-                if ((taskNum === 3 || taskNum === 5) && uploadedFiles[taskNum]) {
-                    answersObj[taskNum].fileUrl = uploadedFiles[taskNum].dataUrl;
-                    answersObj[taskNum].fileName = uploadedFiles[taskNum].name;
-                }
-
-                if (taskNum === 5) {
-                    answersObj[taskNum].karya = document.getElementById('t5-karya')?.value || '';
-                }
-            });
-
-            const newSubmission = {
-                id: subId,
-                nama: nama,
-                absen: absen,
-                kelas: kelas,
-                timestamp: `${now} WIB`,
-                createdAt: timestampMs,
-                selectedTasks: [...selectedTasks],
-                answers: answersObj,
-                graded: false,
-                totalScore: 0,
-                gradesBreakdown: {},
-                teacherNote: ''
-            };
-
-            // Save locally and sync to cloud
-            submissions = submissions.filter(s => s.id !== subId);
-            submissions.unshift(newSubmission);
-            
-            saveSubmissionToCloud(newSubmission);
-            renderTeacherTable();
-
-            // Render Student Confirmation Receipt Box
-            const resultContainer = document.getElementById('submission-result');
-            const resultSummary = document.getElementById('result-summary');
-            document.getElementById('sim-timestamp').innerText = `Waktu Kirim: ${now} WIB`;
-
-            let detail = `<div class="pb-2 border-b border-emerald-200"><strong>Data Peserta:</strong> ${nama} (Absen ${absen}) - ${kelas}</div>`;
-            detail += `<div class="pt-1 font-bold text-emerald-950">Rekapitulasi Tiga Sila Terpilih:</div><div class="space-y-2.5 mt-2">`;
-
-            selectedTasks.forEach(taskNum => {
-                let ans = answersObj[taskNum];
-                detail += `
-                    <div class="bg-white p-3 rounded-xl border border-emerald-200">
-                        <strong class="text-amber-800 block mb-1">📌 Tugas Sila ke-${taskNum}</strong>
-                        <div class="grid grid-cols-1 gap-1 text-[11px] text-slate-700">
-                            <div>• <strong>Apa:</strong> ${ans.apa}</div>
-                            <div>• <strong>Siapa:</strong> ${ans.siapa}</div>
-                            <div>• <strong>Di mana:</strong> ${ans.dimana}</div>
-                            <div>• <strong>Mengapa:</strong> ${ans.mengapa}</div>
-                            <div>• <strong>Bagaimana:</strong> ${ans.bagaimana}</div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            detail += `</div>`;
-            resultSummary.innerHTML = detail;
-            resultContainer.classList.remove('hidden');
-            resultContainer.scrollIntoView({ behavior: 'smooth' });
-
-            showToast('Jawaban 3 Sila berhasil tersimpan di Cloud!');
-        }
-
-        // Save Teacher Evaluation
-        function saveStudentGrade() {
-            if (!currentGradingSubId) return;
-            const sub = submissions.find(s => s.id === currentGradingSubId);
-            if (!sub) return;
-
-            const inputs = document.querySelectorAll('.item-score-input');
-            let breakdown = {};
-            inputs.forEach(input => {
-                let key = input.getAttribute('data-key');
-                breakdown[key] = parseInt(input.value) || 0;
-            });
-
-            const finalScore = parseInt(document.getElementById('modal-calculated-score').innerText) || 0;
-            const teacherNote = document.getElementById('modal-teacher-note').value.trim();
-
-            sub.graded = true;
-            sub.totalScore = finalScore;
-            sub.gradesBreakdown = breakdown;
-            sub.teacherNote = teacherNote;
-
-            // Sync grade updates to cloud
-            updateGradeInCloud(sub.id, {
-                graded: true,
-                totalScore: finalScore,
-                gradesBreakdown: breakdown,
-                teacherNote: teacherNote
-            });
-
-            renderTeacherTable();
-            closeGradingModal();
-            showToast(`Penilaian untuk ${sub.nama} tersimpan secara realtime (Nilai: ${finalScore})!`);
-        }
-
-        function executeDeleteSubmission() {
-            if (!subIdToDelete) return;
-            const targetId = subIdToDelete;
-            submissions = submissions.filter(s => s.id !== targetId);
-            
-            // Delete from cloud
-            deleteSubmissionFromCloud(targetId);
-
-            renderTeacherTable();
-            closeDeleteModal();
-            showToast('Submisi siswa berhasil dihapus dari Cloud!', '🗑️');
-        }
-
-        window.renderTeacherTable = renderTeacherTable;
-        window.submissions = submissions;
-                        siapa: 'Bang Jarwo, Sopo, Adit, Denis, Pak Haji, dan warga.',
-                        dimana: 'Lingkungan RT 04 Desa Karakter.',
-                        mengapa: 'Gotong royong membuat lingkungan bersih dan sehat.',
-                        bagaimana: 'Ikut piket kebersihan kelas dan kerja bakti.',
-                        karya: 'Indahnya kampung bersih berseri,\nBergotong royong setiap hari.\nBersama teman saling memberi,\nLingkungan asri idaman hati.'
-                    }
-                },
-                graded: true,
-                totalScore: 95,
-                gradesBreakdown: { t1_5w1h: 20, t1_table: 20, t4_5w1h: 20, t5_5w1h: 20, t5_karya: 15 },
-                teacherNote: 'Sangat baik! Refleksi 5W1H ditulis sangat runtut dan puisi gotong royongnya sangat bagus.'
-            }
-        ];
-
         // Toast Notification Helper
         function showToast(message, icon = '✅') {
             const toast = document.getElementById('toast-notification');
@@ -1376,6 +1264,50 @@
             }
         }
 
+        // Teacher Dashboard Security & Access Controls
+        function accessTeacherDashboard() {
+            if (isTeacherUnlocked) {
+                const dash = document.getElementById('analytics-dashboard');
+                dash.classList.remove('hidden');
+                dash.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                openPinModal();
+            }
+        }
+
+        function openPinModal() {
+            const inputPin = document.getElementById('input-teacher-pin');
+            if (inputPin) inputPin.value = '';
+            document.getElementById('pin-error-msg')?.classList.add('hidden');
+            document.getElementById('modal-pin-auth').classList.remove('hidden');
+        }
+
+        function closePinModal() {
+            document.getElementById('modal-pin-auth').classList.add('hidden');
+        }
+
+        function verifyTeacherPin() {
+            const inputPin = document.getElementById('input-teacher-pin').value;
+            if (inputPin === TEACHER_PIN) {
+                isTeacherUnlocked = true;
+                closePinModal();
+                
+                const dash = document.getElementById('analytics-dashboard');
+                dash.classList.remove('hidden');
+                dash.scrollIntoView({ behavior: 'smooth' });
+                
+                showToast('Dashboard Guru Berhasil Terbuka!', '🔓');
+            } else {
+                document.getElementById('pin-error-msg')?.classList.remove('hidden');
+            }
+        }
+
+        function lockTeacherDashboard() {
+            isTeacherUnlocked = false;
+            document.getElementById('analytics-dashboard').classList.add('hidden');
+            showToast('Dashboard Guru telah terkunci kembali.', '🔒');
+        }
+
         // Toggle Teacher Dashboard Tabs
         function switchTeacherDashboardTab(tab) {
             const btnSubmisi = document.getElementById('btn-tab-submisi');
@@ -1393,6 +1325,7 @@
                 btnSubmisi.className = "px-3.5 py-2 bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl hover:bg-slate-200 transition flex-1 sm:flex-none text-center";
                 viewGrafik.classList.remove('hidden');
                 viewSubmisi.classList.add('hidden');
+                updateAnalyticsCharts();
             }
         }
 
@@ -1571,6 +1504,54 @@
             showToast('Rekaman suara sampel berhasil dibuat!');
         }
 
+        function generateSampleWavDataUrl() {
+            const sampleRate = 8000;
+            const duration = 2;
+            const numSamples = sampleRate * duration;
+            const headerByteLength = 44;
+            const buffer = new Uint8Array(headerByteLength + numSamples);
+
+            function writeString(offset, str) {
+                for (let i = 0; i < str.length; i++) buffer[offset + i] = str.charCodeAt(i);
+            }
+            function writeUint32(offset, val) {
+                buffer[offset] = val & 0xff;
+                buffer[offset + 1] = (val >> 8) & 0xff;
+                buffer[offset + 2] = (val >> 16) & 0xff;
+                buffer[offset + 3] = (val >> 24) & 0xff;
+            }
+            function writeUint16(offset, val) {
+                buffer[offset] = val & 0xff;
+                buffer[offset + 1] = (val >> 8) & 0xff;
+            }
+
+            writeString(0, 'RIFF');
+            writeUint32(4, 36 + numSamples);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            writeUint32(16, 16);
+            writeUint16(20, 1);
+            writeUint16(22, 1);
+            writeUint32(24, sampleRate);
+            writeUint32(28, sampleRate);
+            writeUint16(32, 1);
+            writeUint16(34, 8);
+            writeString(36, 'data');
+            writeUint32(40, numSamples);
+
+            for (let i = 0; i < numSamples; i++) {
+                const t = i / sampleRate;
+                const freq = 440 + Math.sin(t * 10) * 100;
+                buffer[headerByteLength + i] = Math.floor(128 + 127 * Math.sin(2 * Math.PI * freq * t));
+            }
+
+            let binary = '';
+            for (let i = 0; i < buffer.length; i++) {
+                binary += String.fromCharCode(buffer[i]);
+            }
+            return 'data:audio/wav;base64,' + btoa(binary);
+        }
+
         function handleAudioFileUpload(event) {
             const file = event.target.files[0];
             if (file) {
@@ -1627,7 +1608,8 @@
             const absen = document.getElementById('sim-absen').value.trim() || '01';
             const kelas = document.getElementById('sim-kelas').value;
             const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-            const subId = `SUB-00${submissions.length + 1}`;
+            const timestampMs = Date.now();
+            const subId = `SUB-${timestampMs.toString().slice(-6)}`;
 
             let answersObj = {};
             selectedTasks.forEach(taskNum => {
@@ -1668,6 +1650,7 @@
                 absen: absen,
                 kelas: kelas,
                 timestamp: `${now} WIB`,
+                createdAt: timestampMs,
                 selectedTasks: [...selectedTasks],
                 answers: answersObj,
                 graded: false,
@@ -1676,10 +1659,13 @@
                 teacherNote: ''
             };
 
+            submissions = submissions.filter(s => s.id !== subId);
             submissions.unshift(newSubmission);
+            
+            saveSubmissionToCloud(newSubmission);
             renderTeacherTable();
 
-            // Render Student Confirmation Receipt Box (NO TEACHER GRADING VISIBLE HERE)
+            // Render Student Confirmation Receipt Box
             const resultContainer = document.getElementById('submission-result');
             const resultSummary = document.getElementById('result-summary');
             document.getElementById('sim-timestamp').innerText = `Waktu Kirim: ${now} WIB`;
@@ -1708,12 +1694,13 @@
             resultContainer.classList.remove('hidden');
             resultContainer.scrollIntoView({ behavior: 'smooth' });
 
-            showToast('Jawaban 3 Sila berhasil terkirim ke Dashboard Guru!');
+            showToast('Jawaban 3 Sila berhasil tersimpan!');
         }
 
         // Render Submissions Table in Teacher Dashboard
         function renderTeacherTable() {
             const tbody = document.getElementById('table-submissions-body');
+            if (!tbody) return;
             tbody.innerHTML = '';
 
             let total = submissions.length;
@@ -1741,10 +1728,12 @@
                 }
 
                 let mediaBadges = [];
-                sub.selectedTasks.forEach(t => {
-                    if (sub.answers[t]?.voiceNoteUrl) mediaBadges.push('🎙️ Audio');
-                    if (sub.answers[t]?.fileUrl) mediaBadges.push('🖼️ Gambar Karya');
-                });
+                if (sub.selectedTasks) {
+                    sub.selectedTasks.forEach(t => {
+                        if (sub.answers && sub.answers[t]?.voiceNoteUrl) mediaBadges.push('🎙️ Audio');
+                        if (sub.answers && sub.answers[t]?.fileUrl) mediaBadges.push('🖼️ Gambar Karya');
+                    });
+                }
                 let mediaText = mediaBadges.length > 0 ? mediaBadges.join(', ') : '📝 Teks Refleksi';
 
                 let statusBadge = sub.graded
@@ -1759,7 +1748,7 @@
                     <td class="p-3 sm:p-3.5">${sub.kelas} <span class="text-slate-400">(Absen ${sub.absen})</span></td>
                     <td class="p-3 sm:p-3.5">
                         <div class="flex flex-wrap gap-1">
-                            ${sub.selectedTasks.map(t => `<span class="px-2 py-0.5 bg-amber-100 text-amber-900 font-bold rounded text-[10px]">Sila ${t}</span>`).join('')}
+                            ${(sub.selectedTasks || []).map(t => `<span class="px-2 py-0.5 bg-amber-100 text-amber-900 font-bold rounded text-[10px]">Sila ${t}</span>`).join('')}
                         </div>
                     </td>
                     <td class="p-3 sm:p-3.5 text-slate-600 font-medium">${mediaText}</td>
@@ -1778,7 +1767,6 @@
                 tbody.appendChild(tr);
             });
 
-            // Update stats
             document.getElementById('stat-total-submisi').innerText = `${total} Siswa`;
             document.getElementById('stat-pending-submisi').innerText = `${pending} Siswa`;
             document.getElementById('stat-completed-submisi').innerText = `${completed} Siswa`;
@@ -1788,7 +1776,7 @@
             document.getElementById('stat-avg-score').innerText = `${avg} / 100`;
         }
 
-        // Open Teacher Grading Modal (STRICTLY RESTRICTED TO DASHBOARD GURU)
+        // Open Teacher Grading Modal
         function openGradingModal(subId) {
             if (!isTeacherUnlocked) {
                 openPinModal();
@@ -1806,8 +1794,8 @@
 
             let defaultBreakdown = sub.gradesBreakdown || {};
 
-            sub.selectedTasks.forEach((taskNum, index) => {
-                const ans = sub.answers[taskNum];
+            (sub.selectedTasks || []).forEach((taskNum, index) => {
+                const ans = sub.answers ? sub.answers[taskNum] : null;
                 if (!ans) return;
 
                 const card = document.createElement('div');
@@ -1851,11 +1839,11 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 bg-white p-3 rounded-xl border border-slate-200 text-[11px] text-slate-800">
-                        <div><strong>1. APA:</strong> <p class="text-slate-600 mt-0.5">${ans.apa}</p></div>
-                        <div><strong>2. SIAPA:</strong> <p class="text-slate-600 mt-0.5">${ans.siapa}</p></div>
-                        <div><strong>3. DI MANA:</strong> <p class="text-slate-600 mt-0.5">${ans.dimana}</p></div>
-                        <div><strong>4. MENGAPA:</strong> <p class="text-slate-600 mt-0.5">${ans.mengapa}</p></div>
-                        <div class="md:col-span-2"><strong>5. BAGAIMANA:</strong> <p class="text-slate-600 mt-0.5">${ans.bagaimana}</p></div>
+                        <div><strong>1. APA:</strong> <p class="text-slate-600 mt-0.5">${ans.apa || '-'}</p></div>
+                        <div><strong>2. SIAPA:</strong> <p class="text-slate-600 mt-0.5">${ans.siapa || '-'}</p></div>
+                        <div><strong>3. DI MANA:</strong> <p class="text-slate-600 mt-0.5">${ans.dimana || '-'}</p></div>
+                        <div><strong>4. MENGAPA:</strong> <p class="text-slate-600 mt-0.5">${ans.mengapa || '-'}</p></div>
+                        <div class="md:col-span-2"><strong>5. BAGAIMANA:</strong> <p class="text-slate-600 mt-0.5">${ans.bagaimana || '-'}</p></div>
                     </div>
 
                     ${ans.karya ? `<div class="bg-sky-50 p-3 rounded-xl border border-sky-200"><strong>Karya Tulis/Puisi:</strong><p class="whitespace-pre-line text-slate-700 italic mt-1">${ans.karya}</p></div>` : ''}
@@ -1865,7 +1853,6 @@
                 content.appendChild(card);
             });
 
-            // Teacher Feedback Section
             const teacherNoteBox = document.createElement('div');
             teacherNoteBox.className = "bg-amber-50/80 p-4 rounded-2xl border border-amber-200 space-y-2";
             teacherNoteBox.innerHTML = `
@@ -1896,20 +1883,22 @@
 
             const scoreEl = document.getElementById('modal-calculated-score');
             const predicateEl = document.getElementById('modal-score-predicate');
-            scoreEl.innerText = finalScore;
+            if (scoreEl) scoreEl.innerText = finalScore;
 
-            if (finalScore >= 90) {
-                predicateEl.className = "px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-md";
-                predicateEl.innerText = "A (Sangat Baik)";
-            } else if (finalScore >= 80) {
-                predicateEl.className = "px-2 py-0.5 bg-blue-100 text-blue-800 font-bold text-[10px] rounded-md";
-                predicateEl.innerText = "B (Baik)";
-            } else if (finalScore >= 70) {
-                predicateEl.className = "px-2 py-0.5 bg-amber-100 text-amber-800 font-bold text-[10px] rounded-md";
-                predicateEl.innerText = "C (Cukup)";
-            } else {
-                predicateEl.className = "px-2 py-0.5 bg-red-100 text-red-800 font-bold text-[10px] rounded-md";
-                predicateEl.innerText = "D (Perlu Bimbingan)";
+            if (predicateEl) {
+                if (finalScore >= 90) {
+                    predicateEl.className = "px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-md";
+                    predicateEl.innerText = "A (Sangat Baik)";
+                } else if (finalScore >= 80) {
+                    predicateEl.className = "px-2 py-0.5 bg-blue-100 text-blue-800 font-bold text-[10px] rounded-md";
+                    predicateEl.innerText = "B (Baik)";
+                } else if (finalScore >= 70) {
+                    predicateEl.className = "px-2 py-0.5 bg-amber-100 text-amber-800 font-bold text-[10px] rounded-md";
+                    predicateEl.innerText = "C (Cukup)";
+                } else {
+                    predicateEl.className = "px-2 py-0.5 bg-red-100 text-red-800 font-bold text-[10px] rounded-md";
+                    predicateEl.innerText = "D (Perlu Bimbingan)";
+                }
             }
         }
 
@@ -1934,14 +1923,53 @@
             sub.gradesBreakdown = breakdown;
             sub.teacherNote = teacherNote;
 
+            updateGradeInCloud(sub.id, {
+                graded: true,
+                totalScore: finalScore,
+                gradesBreakdown: breakdown,
+                teacherNote: teacherNote
+            });
+
             renderTeacherTable();
             closeGradingModal();
-            showToast(`Penilaian untuk ${sub.nama} berhasil disimpan (Nilai: ${finalScore})!`);
+            showToast(`Penilaian untuk ${sub.nama} tersimpan secara realtime (Nilai: ${finalScore})!`);
         }
 
         function closeGradingModal() {
             document.getElementById('modal-grading').classList.add('hidden');
             currentGradingSubId = null;
+        }
+
+        // Confirm & Execute Deletion
+        function confirmDeleteSubmission(subId) {
+            if (!isTeacherUnlocked) {
+                openPinModal();
+                return;
+            }
+            subIdToDelete = subId;
+            const sub = submissions.find(s => s.id === subId);
+            const textEl = document.getElementById('delete-confirm-text');
+            if (sub && textEl) {
+                textEl.innerText = `Apakah Anda yakin ingin menghapus submisi dari ${sub.nama} (${sub.kelas}, Absen ${sub.absen})?`;
+            }
+            document.getElementById('modal-delete-confirm').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('modal-delete-confirm').classList.add('hidden');
+            subIdToDelete = null;
+        }
+
+        function executeDeleteSubmission() {
+            if (!subIdToDelete) return;
+            const targetId = subIdToDelete;
+            submissions = submissions.filter(s => s.id !== targetId);
+            
+            deleteSubmissionFromCloud(targetId);
+
+            renderTeacherTable();
+            closeDeleteModal();
+            showToast('Submisi siswa berhasil dihapus dari Cloud!', '🗑️');
         }
 
         // Image Zoom Modal Helpers
@@ -1954,63 +1982,89 @@
             document.getElementById('modal-image-zoom').classList.add('hidden');
         }
 
-        // Initialize Analytics Charts & Submissions Table
+        // Dynamic Analytics Charts
+        function updateAnalyticsCharts() {
+            const counts = [0, 0, 0, 0, 0];
+            submissions.forEach(sub => {
+                if (sub.selectedTasks) {
+                    sub.selectedTasks.forEach(taskNum => {
+                        if (taskNum >= 1 && taskNum <= 5) {
+                            counts[taskNum - 1]++;
+                        }
+                    });
+                }
+            });
+
+            if (chartTaskDist) {
+                chartTaskDist.data.datasets[0].data = counts;
+                chartTaskDist.update();
+            }
+        }
+
+        // Initialize Charts & App on Load
         document.addEventListener('DOMContentLoaded', function() {
             renderTeacherTable();
 
-            // Enter key support for PIN Modal
             document.getElementById('input-teacher-pin')?.addEventListener('keyup', function(e) {
                 if (e.key === 'Enter') {
                     verifyTeacherPin();
                 }
             });
 
-            // Chart 1: Distribution of Selected Tasks
-            const ctxTask = document.getElementById('chart-task-distribution').getContext('2d');
-            new Chart(ctxTask, {
-                type: 'bar',
-                data: {
-                    labels: ['Sila 1', 'Sila 2', 'Sila 3', 'Sila 4', 'Sila 5'],
-                    datasets: [{
-                        label: 'Frekuensi Dipilih (%)',
-                        data: [78, 52, 68, 44, 58],
-                        backgroundColor: ['#4f46e5', '#dc2626', '#16a34a', '#ea580c', '#0284c7'],
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: true, ticks: { callback: function(v) { return v + '%'; } } }
+            // Chart 1: Task Selection Distribution
+            const ctxTask = document.getElementById('chart-task-distribution')?.getContext('2d');
+            if (ctxTask) {
+                chartTaskDist = new Chart(ctxTask, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Sila 1', 'Sila 2', 'Sila 3', 'Sila 4', 'Sila 5'],
+                        datasets: [{
+                            label: 'Jumlah Pemilihan Siswa',
+                            data: [1, 1, 1, 0, 0],
+                            backgroundColor: ['#4f46e5', '#dc2626', '#16a34a', '#ea580c', '#0284c7'],
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                        }
                     }
-                }
-            });
+                });
+            }
 
             // Chart 2: Sila 1 Reflection Habits Matrix
-            const ctxReflect = document.getElementById('chart-reflection-matrix').getContext('2d');
-            new Chart(ctxReflect, {
-                type: 'bar',
-                data: {
-                    labels: ['Berdoa', 'Menghormati', 'Tidak Mengganggu', 'Berteman'],
-                    datasets: [
-                        { label: 'Selalu', data: [85, 90, 88, 82], backgroundColor: '#16a34a' },
-                        { label: 'Sering', data: [12, 8, 10, 15], backgroundColor: '#eab308' },
-                        { label: 'Kadang/Jarang', data: [3, 2, 2, 3], backgroundColor: '#cbd5e1' }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: { stacked: true },
-                        y: { stacked: true, max: 100, ticks: { callback: function(v) { return v + '%'; } } }
+            const ctxReflect = document.getElementById('chart-reflection-matrix')?.getContext('2d');
+            if (ctxReflect) {
+                chartReflectMatrix = new Chart(ctxReflect, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Berdoa', 'Menghormati', 'Tidak Mengganggu', 'Berteman'],
+                        datasets: [
+                            { label: 'Selalu', data: [85, 90, 88, 82], backgroundColor: '#16a34a' },
+                            { label: 'Sering', data: [12, 8, 10, 15], backgroundColor: '#eab308' },
+                            { label: 'Kadang/Jarang', data: [3, 2, 2, 3], backgroundColor: '#cbd5e1' }
+                        ]
                     },
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, max: 100, ticks: { callback: function(v) { return v + '%'; } } }
+                        },
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+            }
         });
+
+        window.renderTeacherTable = renderTeacherTable;
+        window.updateAnalyticsCharts = updateAnalyticsCharts;
+        window.submissions = submissions;
     </script>
 </body>
 </html>
